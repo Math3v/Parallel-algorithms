@@ -11,9 +11,19 @@ using namespace std;
 
 #define BUF_1_TAG 0
 #define BUF_2_TAG 1
+#define NUM_OF_INPUTS 8
 
 map <int, int> counters;
 const bool debug = false;
+
+bool will_recv(int pid) {
+	if(counters.find(pid) == counters.end()) {
+		return true;
+	}
+	else if(counters.find(pid)->second == 7) {
+		return false;
+	}
+}
 
 int get_tag(int pid) {
 	if(counters.find(pid) == counters.end()) {
@@ -52,6 +62,8 @@ int main(int argc, char **argv) {
 	int numbers[] = {3,5,8,6,11,9,17,18};
 	int number_amount;
 	int flag;
+	int received = 0;
+	bool send;
 
 	//wait_for_gdb();
 
@@ -88,33 +100,7 @@ int main(int argc, char **argv) {
 	}
 	else if(myid == (numprocs - 1)) { // Last CPU
 		while(true) {
-			if(debug)
-				cout << "Waiting " << myid << " " << mynums_1.size() << ":" << mynums_2.size() << endl;
-			//MPI_Probe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-			MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
-			MPI_Get_count(&stat, MPI_INT, &number_amount);
-			if(flag > 0){
-				if(debug) 
-					cout << "Number amount " << number_amount;
-				MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-			}
-			else {
-				if(debug)
-					cout << "Process " << myid << " skipping..." << endl;
-			}
-			if(debug)
-				cout << "Last CPU received: " << (int) number <<  " at buffer " << stat.MPI_TAG << endl;	
-
-			/* Receive value and insert into buffer */
-			if(stat.MPI_TAG == BUF_1_TAG) {
-				mynums_1.push(number);
-			}
-			else if(stat.MPI_TAG == BUF_2_TAG) {
-				mynums_2.push(number);
-			}
-			if(debug)
-				cout << "Proc " << myid << " " << mynums_1.size() << ":" << mynums_2.size() << endl;
-			if(mynums_2.size() >= 1) { //Last CPU can do some work
+			if(!mynums_1.empty() && !mynums_2.empty()) {
 				if(mynums_1.front() < mynums_2.front()) {
 					cout << mynums_1.front() << endl;
 					mynums_1.pop();
@@ -124,65 +110,77 @@ int main(int argc, char **argv) {
 					mynums_2.pop();
 				}
 			}
-			else if(mynums_1.empty() && (mynums_2.size() >= 1)) { //Last element print
+			else {
+				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
+				if(flag == true) {
+					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+					cout << "Last CPU received " << number << " at " << stat.MPI_TAG << endl;
+					/* Receive value and insert into buffer */
+					if(stat.MPI_TAG == BUF_1_TAG) {
+						mynums_1.push(number);
+					}
+					else if(stat.MPI_TAG == BUF_2_TAG) {
+						mynums_2.push(number);
+					}
+				}
+			}
+
+			/*if(mynums_1.empty() && !mynums_2.empty()) {
 				cout << mynums_2.front() << endl;
 				mynums_2.pop();
 			}
+			else if(!mynums_1.empty() && mynums_2.empty()) {
+				cout << mynums_1.front() << endl;
+				mynums_1.pop();
+			}*/
 		}
 	}
 	else { // Other CPUs
 		while(true){
-			if(debug)
-				cout << "Waiting " << myid << " " << mynums_1.size() << ":" << mynums_2.size() << endl;
-			//MPI_Probe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-			MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
-			MPI_Get_count(&stat, MPI_INT, &number_amount);
-			if(flag > 0){
-				if(debug)
-					cout << "Number amount " << number_amount;
-				MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);	
-			}
-			else {
-				if(debug)
-					cout << "Process " << myid << " skipping..." << endl;
-			}
-			
-			/* Receive value and insert into buffer */
-			if(stat.MPI_TAG == BUF_1_TAG) {
-				mynums_1.push(number);
-			}
-			else if(stat.MPI_TAG == BUF_2_TAG) {
-				mynums_2.push(number);
-			}
-			if(debug)
-				cout << "Proc " << myid << " " << mynums_1.size() << ":" << mynums_2.size() << endl;
-			/* If CPUi have to do some work */
-			if(mynums_2.size() >= 1) {
-				working[myid] = true;
-				if(mynums_1.front() < mynums_2.front()) {
+			if(!mynums_1.empty() && !mynums_2.empty()) {
+				//Compare and send
+				if(mynums_1.front() > mynums_2.front()) {
+					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+					MPI_Wait(&request, &stat);
+					mynums_2.pop();
+				}
+				else {
 					MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
 					MPI_Wait(&request, &stat);
-					if(debug)
-						cout << " actual value " << mynums_1.front() << endl;
+					mynums_1.pop();
+				}
+			}
+			else {
+				//Is there something to receive?
+				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
+				if(flag == true) {
+					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+					/* Receive value and insert into buffer */
+					if(stat.MPI_TAG == BUF_1_TAG) {
+						mynums_1.push(number);
+					}
+					else if(stat.MPI_TAG == BUF_2_TAG) {
+						mynums_2.push(number);
+					}
+					continue;
+				}
+			}
+
+			if(will_recv(myid) == false) {
+				if(mynums_1.empty() && !mynums_2.empty()) {
+					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+					MPI_Wait(&request, &stat);
+					mynums_2.pop();
+				}
+				else if(!mynums_1.empty() && mynums_2.empty()) {
+					MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+					MPI_Wait(&request, &stat);
 					mynums_1.pop();
 				}
 				else {
-					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
-					MPI_Wait(&request, &stat);
-					if(debug)
-						cout << " actual value " << mynums_2.front() << endl;
-					mynums_2.pop();
+					//cout << "Breaking process " << myid << endl;
+					//break;
 				}
-			}
-			else if(mynums_1.empty() && (mynums_2.size() >= 1)) { //Last element print
-				MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
-				MPI_Wait(&request, &stat);
-				mynums_2.pop();
-			}
-			else if(working.find(myid) != working.end() && working.find(myid)->second == true) {
-				MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
-				MPI_Wait(&request, &stat);
-				mynums_1.pop();
 			}
 		}
 	}
