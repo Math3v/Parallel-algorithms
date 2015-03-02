@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
 					continue;
 				}
 			}
-
+			/*
 			if(will_recv(myid) == false) {
 				if(mynums_1.empty() && !mynums_2.empty()) {
 					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
@@ -182,6 +182,7 @@ int main(int argc, char **argv) {
 					//break;
 				}
 			}
+			*/
 		}
 	}
 
