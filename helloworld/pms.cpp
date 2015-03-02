@@ -123,27 +123,8 @@ int main(int argc, char **argv) {
 					mynums_2.pop();
 				}
 			}
-			else {
-				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
-				if(flag == true) {
-					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-					cout << "Last CPU received " << number << " at " << stat.MPI_TAG << endl; 
-					increment_received(myid);
-					if(will_recv(myid) == false)
-						cout << "Will receive false" << endl;
-					else
-						cout << "Will receive true" << endl;
-					/* Receive value and insert into buffer */
-					if(stat.MPI_TAG == BUF_1_TAG) {
-						mynums_1.push(number);
-					}
-					else if(stat.MPI_TAG == BUF_2_TAG) {
-						mynums_2.push(number);
-					}
-				}
-			}
-
-			if(will_recv(myid) == false){
+			
+			else if(will_recv(myid) == false){
 				if(mynums_1.empty() && !mynums_2.empty()) {
 					cout << mynums_2.front() << endl;
 					mynums_2.pop();
@@ -157,6 +138,23 @@ int main(int argc, char **argv) {
 					break;
 				}
 			}
+
+			else {
+				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
+				if(flag == true) {
+					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+					increment_received(myid);
+					/* Receive value and insert into buffer */
+					if(stat.MPI_TAG == BUF_1_TAG) {
+						mynums_1.push(number);
+					}
+					else if(stat.MPI_TAG == BUF_2_TAG) {
+						mynums_2.push(number);
+					}
+				}
+			}
+
+			
 		}
 	}
 	else { // Other CPUs
@@ -174,6 +172,25 @@ int main(int argc, char **argv) {
 					mynums_1.pop();
 				}
 			}
+			
+			
+			else if(will_recv(myid) == false) {
+				if(mynums_1.empty() && !mynums_2.empty()) {
+					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+					MPI_Wait(&request, &stat);
+					mynums_2.pop();
+				}
+				else if(!mynums_1.empty() && mynums_2.empty()) {
+					MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+					MPI_Wait(&request, &stat);
+					mynums_1.pop();
+				}
+				else {
+					cout << "Breaking process " << myid << endl;
+					break;
+				}
+			}
+
 			else {
 				//Is there something to receive?
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
@@ -188,23 +205,6 @@ int main(int argc, char **argv) {
 						mynums_2.push(number);
 					}
 					continue;
-				}
-			}
-			
-			if(will_recv(myid) == false) {
-				if(mynums_1.empty() && !mynums_2.empty()) {
-					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
-					MPI_Wait(&request, &stat);
-					mynums_2.pop();
-				}
-				else if(!mynums_1.empty() && mynums_2.empty()) {
-					MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
-					MPI_Wait(&request, &stat);
-					mynums_1.pop();
-				}
-				else {
-					cout << "Breaking process " << myid << endl;
-					break;
 				}
 			}
 			
