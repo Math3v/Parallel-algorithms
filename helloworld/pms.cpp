@@ -93,8 +93,9 @@ int main(int argc, char **argv) {
 			unsigned int cnt = 0;
 			while(myFile.good()) {
 				myFile.read(data ,1);
-				number = numbers[cnt];
-				//cout << "Value read: " << number << endl;
+				number = (int) ((*data) + 128);
+				cout << "Value read " << (int) number << endl;
+				//number = numbers[cnt];
 				if(cnt % 2 == 0) {
 					MPI_Isend(&number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
 					MPI_Wait(&request, &stat);
@@ -115,22 +116,22 @@ int main(int argc, char **argv) {
 		while(true) {
 			if(!mynums_1.empty() && !mynums_2.empty()) {
 				if(mynums_1.front() < mynums_2.front()) {
-					cout << mynums_1.front() << endl;
+					cout << (int) mynums_1.front() << endl;
 					mynums_1.pop();
 				}
 				else {
-					cout << mynums_2.front() << endl;
+					cout << (int) mynums_2.front() << endl;
 					mynums_2.pop();
 				}
 			}
 			
 			else if(will_recv(myid) == false){
 				if(mynums_1.empty() && !mynums_2.empty()) {
-					cout << mynums_2.front() << endl;
+					cout << (int) mynums_2.front() << endl;
 					mynums_2.pop();
 				}
 				else if(!mynums_1.empty() && mynums_2.empty()) {
-					cout << mynums_1.front() << endl;
+					cout << (int) mynums_1.front() << endl;
 					mynums_1.pop();
 				}
 				else {
@@ -143,6 +144,7 @@ int main(int argc, char **argv) {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+					cout << "Value " << (int) number << " received at " << stat.MPI_TAG << endl;
 					increment_received(myid);
 					/* Receive value and insert into buffer */
 					if(stat.MPI_TAG == BUF_1_TAG) {
