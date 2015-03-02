@@ -14,15 +14,28 @@ using namespace std;
 #define NUM_OF_INPUTS 8
 
 map <int, int> counters;
+map <int, int> received;
 const bool debug = false;
 
+void increment_received(int pid) {
+	if(received.find(pid) == received.end()) {
+		received[pid] = 1;
+	}
+	else {
+		int __recv = received.find(pid)->second;
+		++__recv;
+		received.find(pid)->second = __recv;
+	}
+}
+
 bool will_recv(int pid) {
-	if(counters.find(pid) == counters.end()) {
+	if(received.find(pid) == received.end()) {
 		return true;
 	}
-	else if(counters.find(pid)->second == 7) {
+	else if(received.find(pid)->second >= 8) {
 		return false;
 	}
+	return true;
 }
 
 int get_tag(int pid) {
@@ -114,7 +127,12 @@ int main(int argc, char **argv) {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-					cout << "Last CPU received " << number << " at " << stat.MPI_TAG << endl;
+					cout << "Last CPU received " << number << " at " << stat.MPI_TAG << endl; 
+					increment_received(myid);
+					if(will_recv(myid) == false)
+						cout << "Will receive false" << endl;
+					else
+						cout << "Will receive true" << endl;
 					/* Receive value and insert into buffer */
 					if(stat.MPI_TAG == BUF_1_TAG) {
 						mynums_1.push(number);
@@ -125,14 +143,20 @@ int main(int argc, char **argv) {
 				}
 			}
 
-			/*if(mynums_1.empty() && !mynums_2.empty()) {
-				cout << mynums_2.front() << endl;
-				mynums_2.pop();
+			if(will_recv(myid) == false){
+				if(mynums_1.empty() && !mynums_2.empty()) {
+					cout << mynums_2.front() << endl;
+					mynums_2.pop();
+				}
+				else if(!mynums_1.empty() && mynums_2.empty()) {
+					cout << mynums_1.front() << endl;
+					mynums_1.pop();
+				}
+				else {
+					cout << "Breaking process " << myid << endl;
+					break;
+				}
 			}
-			else if(!mynums_1.empty() && mynums_2.empty()) {
-				cout << mynums_1.front() << endl;
-				mynums_1.pop();
-			}*/
 		}
 	}
 	else { // Other CPUs
@@ -155,6 +179,7 @@ int main(int argc, char **argv) {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+					increment_received(myid);
 					/* Receive value and insert into buffer */
 					if(stat.MPI_TAG == BUF_1_TAG) {
 						mynums_1.push(number);
@@ -165,7 +190,7 @@ int main(int argc, char **argv) {
 					continue;
 				}
 			}
-			/*
+			
 			if(will_recv(myid) == false) {
 				if(mynums_1.empty() && !mynums_2.empty()) {
 					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
@@ -178,11 +203,11 @@ int main(int argc, char **argv) {
 					mynums_1.pop();
 				}
 				else {
-					//cout << "Breaking process " << myid << endl;
-					//break;
+					cout << "Breaking process " << myid << endl;
+					break;
 				}
 			}
-			*/
+			
 		}
 	}
 
