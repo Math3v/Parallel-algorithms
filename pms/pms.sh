@@ -5,7 +5,7 @@ F_NUMPROC=`echo "l($1)/l(2)" | bc -l`
 NUMPROC=${F_NUMPROC%.*}
 ((NUMPROC++))
 
-echo "Starting test with $1 values and $NUMPROC processors"
+#echo "Starting test with $1 values and $NUMPROC processors"
 
 
 mpic++ --prefix /usr/local/share/OpenMPI -g -o pms pms.cpp
@@ -18,4 +18,4 @@ END=$(($(date +%s%N)/1000000))
 echo "Time: `expr $END - $START`"
 
 rm -f pms
-rm -f random.dat
+rm -f numbers

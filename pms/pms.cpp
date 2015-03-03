@@ -117,8 +117,6 @@ int main(int argc, char **argv) {
 	int received = 0;
 	bool send;
 
-	//wait_for_gdb();
-
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -130,6 +128,8 @@ int main(int argc, char **argv) {
 			while(myFile.good()) {
 				myFile.read(data ,1);
 				number = (int) ((*data) + 128);
+				cout << number << " ";
+
 				if(cnt % 2 == 0) {
 					MPI_Isend(&number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
 					MPI_Wait(&request, &stat);
@@ -141,6 +141,7 @@ int main(int argc, char **argv) {
 				++cnt;
 			}
 			myFile.close();
+			cout << endl;
 		}
 
 		MPI_Isend(&last_number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
