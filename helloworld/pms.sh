@@ -12,11 +12,10 @@ mpic++ --prefix /usr/local/share/OpenMPI -g -o pms pms.cpp
 
 START=$(($(date +%s%N)/1000000))
 mpirun --prefix /usr/local/share/OpenMPI -np $NUMPROC pms
-#mpirun --prefix /usr/local/share/OpenMPI -np $1 -n $1 xterm -e gdb -q -tui -x gdb.txt ./pms
+#mpirun --prefix /usr/local/share/OpenMPI -np $NUMPROC -n $NUMPROC xterm -e gdb -q -tui -x gdb.txt ./pms
 END=$(($(date +%s%N)/1000000))
 
-echo "Start $START"
-echo "End $END"
-echo "`expr $END - $START`"
+echo "Time: `expr $END - $START`"
 
 rm -f pms
+rm -f random.dat

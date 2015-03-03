@@ -3,15 +3,12 @@
 #include <math.h>
 #include <iostream>
 #include <fstream>
-#include <vector>
 #include <queue>
-#include <unistd.h> //sleep
 
 using namespace std;
 
 #define BUF_1_TAG 0
 #define BUF_2_TAG 1
-#define NUM_OF_INPUTS 8
 
 enum which_t {
 	first,
@@ -20,8 +17,6 @@ enum which_t {
 
 map <int, pair<int, int> > sent;
 map <int, int> counters;
-map <int, int> received;
-const bool debug = false;
 int last_number = 0xFFFFFFFF;
 
 void increment_sent(int pid, enum which_t which) {
@@ -95,27 +90,6 @@ void reset_counters_sent(int pid) {
 	sent.find(pid)->second.second = 0;
 }
 
-void increment_received(int pid) {
-	if(received.find(pid) == received.end()) {
-		received[pid] = 1;
-	}
-	else {
-		int __recv = received.find(pid)->second;
-		++__recv;
-		received.find(pid)->second = __recv;
-	}
-}
-
-bool will_recv(int pid) {
-	if(received.find(pid) == received.end()) {
-		return true;
-	}
-	else if(received.find(pid)->second >= 8) {
-		return false;
-	}
-	return true;
-}
-
 int get_tag(int pid) {
 	if(counters.find(pid) == counters.end()) {
 		counters[pid] = 0;
@@ -126,18 +100,7 @@ int get_tag(int pid) {
 		counters.find(pid)->second = __cnt;
 	}
 	const float outBuff = (float) ((float) ((float) counters.find(pid)->second) / (pow(2.0, (float) pid)));
-	if(debug)
-		cout << "Proc " << pid << " value no " << (int) counters.find(pid)->second << " sending to " << (int) fmod(outBuff, 2) << endl;
-
 	return (int) fmod(outBuff, 2);
-}
-
-void wait_for_gdb(){
-	int i = 0;
-    printf("PID %d ready for attach\n", getpid());
-    fflush(stdout);
-    while (0 == i)
-        sleep(5);
 }
 
 int main(int argc, char **argv) {
@@ -149,8 +112,6 @@ int main(int argc, char **argv) {
 	MPI_Request request;
 	queue<int> mynums_1;
 	queue<int> mynums_2;
-	map <int, bool> working;
-	int numbers[] = {3,5,8,6,11,9,17,18};
 	int number_amount;
 	int flag;
 	int received = 0;
@@ -162,9 +123,6 @@ int main(int argc, char **argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
-	//cout << "Num of procs: " << numprocs << " my rank is: " << myid << endl;
-	const int sizeOfBuffer = pow(2.0, (float) myid - 1);
-
 	if(myid == 0) { // Root CPU
 		ifstream myFile ("random.dat", ios::binary);
 		if(myFile.is_open()) {
@@ -172,8 +130,6 @@ int main(int argc, char **argv) {
 			while(myFile.good()) {
 				myFile.read(data ,1);
 				number = (int) ((*data) + 128);
-				//cout << "Value read " << (int) number << endl;
-				//number = numbers[cnt];
 				if(cnt % 2 == 0) {
 					MPI_Isend(&number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
 					MPI_Wait(&request, &stat);
@@ -183,12 +139,10 @@ int main(int argc, char **argv) {
 					MPI_Wait(&request, &stat);
 				}
 				++cnt;
-				if(cnt == 8)
-					break;
 			}
 			myFile.close();
-			//cout << "All values have been read!" << endl;
 		}
+
 		MPI_Isend(&last_number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
 		MPI_Wait(&request, &stat);
 	}
@@ -204,30 +158,35 @@ int main(int argc, char **argv) {
 					mynums_2.pop();
 				}
 			}
-			
-			else if(will_recv(myid) == false){
-				if(mynums_1.empty() && !mynums_2.empty()) {
-					cout << (int) mynums_2.front() << endl;
-					mynums_2.pop();
-				}
-				else if(!mynums_1.empty() && mynums_2.empty()) {
-					cout << (int) mynums_1.front() << endl;
-					mynums_1.pop();
-				}
-				else {
-					//cout << "Breaking process " << myid << endl;
-					break;
-				}
-			}
-
 			else {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-					//cout << "Value " << (int) number << " received at " << stat.MPI_TAG << endl;
-					increment_received(myid);
+					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
 
 					if(number == last_number) {
+						//cout << "1 " << mynums_1.front() << " 2 " << mynums_2.front() << endl;
+						while(!mynums_1.empty() || !mynums_2.empty()) {
+							//cout << "1 " << mynums_1.front() << " 2 " << mynums_2.front() << endl;
+							if(!mynums_1.empty() && !mynums_2.empty()) {
+								if(mynums_1.front() < mynums_2.front()) {
+									cout << (int) mynums_1.front() << endl;
+									mynums_1.pop();
+								}
+								else {
+									cout << (int) mynums_2.front() << endl;
+									mynums_2.pop();
+								}
+							}
+							else if(mynums_1.empty() && !mynums_2.empty()) {
+								cout << (int) mynums_2.front() << endl;
+								mynums_2.pop();
+							}
+							else if(!mynums_1.empty() && mynums_2.empty()) {
+								cout << (int) mynums_1.front() << endl;
+								mynums_1.pop();
+							}
+						}
 						break;
 					}
 
@@ -276,37 +235,17 @@ int main(int argc, char **argv) {
 			else if(cannot_send_from_both(myid)) {
 				reset_counters_sent(myid);
 			}
-			/*
-			else if(will_recv(myid) == false) {
-				if(mynums_1.empty() && !mynums_2.empty()) {
-					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
-					MPI_Wait(&request, &stat);
-					mynums_2.pop();
-				}
-				else if(!mynums_1.empty() && mynums_2.empty()) {
-					MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
-					MPI_Wait(&request, &stat);
-					mynums_1.pop();
-				}
-				else {
-					cout << "Breaking process " << myid << endl;
-					break;
-				}
-			}
-			*/
 			else {
 				//Is there something to receive?
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-					increment_received(myid);
 
 					if(number == last_number) {
 						MPI_Isend(&last_number, 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
 						MPI_Wait(&request, &stat);
 						break;
 					}
-
 					/* Receive value and insert into buffer */
 					if(stat.MPI_TAG == BUF_1_TAG) {
 						mynums_1.push(number);
@@ -314,10 +253,8 @@ int main(int argc, char **argv) {
 					else if(stat.MPI_TAG == BUF_2_TAG) {
 						mynums_2.push(number);
 					}
-					continue;
 				}
 			}
-			
 		}
 	}
 
