@@ -22,6 +22,7 @@ map <int, pair<int, int> > sent;
 map <int, int> counters;
 map <int, int> received;
 const bool debug = false;
+int last_number = 0xFFFFFFFF;
 
 void increment_sent(int pid, enum which_t which) {
 	int recv;
@@ -161,7 +162,7 @@ int main(int argc, char **argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
-	cout << "Num of procs: " << numprocs << " my rank is: " << myid << endl;
+	//cout << "Num of procs: " << numprocs << " my rank is: " << myid << endl;
 	const int sizeOfBuffer = pow(2.0, (float) myid - 1);
 
 	if(myid == 0) { // Root CPU
@@ -171,7 +172,7 @@ int main(int argc, char **argv) {
 			while(myFile.good()) {
 				myFile.read(data ,1);
 				number = (int) ((*data) + 128);
-				cout << "Value read " << (int) number << endl;
+				//cout << "Value read " << (int) number << endl;
 				//number = numbers[cnt];
 				if(cnt % 2 == 0) {
 					MPI_Isend(&number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
@@ -188,6 +189,8 @@ int main(int argc, char **argv) {
 			myFile.close();
 			//cout << "All values have been read!" << endl;
 		}
+		MPI_Isend(&last_number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
+		MPI_Wait(&request, &stat);
 	}
 	else if(myid == (numprocs - 1)) { // Last CPU
 		while(true) {
@@ -212,7 +215,7 @@ int main(int argc, char **argv) {
 					mynums_1.pop();
 				}
 				else {
-					cout << "Breaking process " << myid << endl;
+					//cout << "Breaking process " << myid << endl;
 					break;
 				}
 			}
@@ -221,8 +224,13 @@ int main(int argc, char **argv) {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-					cout << "Value " << (int) number << " received at " << stat.MPI_TAG << endl;
+					//cout << "Value " << (int) number << " received at " << stat.MPI_TAG << endl;
 					increment_received(myid);
+
+					if(number == last_number) {
+						break;
+					}
+
 					/* Receive value and insert into buffer */
 					if(stat.MPI_TAG == BUF_1_TAG) {
 						mynums_1.push(number);
@@ -292,6 +300,13 @@ int main(int argc, char **argv) {
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 					increment_received(myid);
+
+					if(number == last_number) {
+						MPI_Isend(&last_number, 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+						MPI_Wait(&request, &stat);
+						break;
+					}
+
 					/* Receive value and insert into buffer */
 					if(stat.MPI_TAG == BUF_1_TAG) {
 						mynums_1.push(number);
