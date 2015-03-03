@@ -13,9 +13,86 @@ using namespace std;
 #define BUF_2_TAG 1
 #define NUM_OF_INPUTS 8
 
+enum which_t {
+	first,
+	second
+};
+
+map <int, pair<int, int> > sent;
 map <int, int> counters;
 map <int, int> received;
 const bool debug = false;
+
+void increment_sent(int pid, enum which_t which) {
+	int recv;
+	if(sent.find(pid) == sent.end()) {
+		sent[pid] = make_pair(0, 0);	
+	}
+	if(which == first) {
+		recv = sent.find(pid)->second.first;
+		++recv;
+		sent.find(pid)->second.first = recv;
+	}
+	else {
+		recv = sent.find(pid)->second.second;
+		++recv;
+		sent.find(pid)->second.second = recv;
+	}
+}
+
+bool can_send_from_both(int pid) {
+	const int max = (int) pow(2.0, (float) (pid - 1));
+	if(sent.find(pid) == sent.end()) {
+		return true;
+	}
+	else {
+		int fir = sent.find(pid)->second.first;
+		int sec = sent.find(pid)->second.second;
+		if(fir < max && sec < max){
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+}
+
+bool can_send_from_first(int pid) {
+	const int max = (int) pow(2.0, (float) (pid - 1));
+	int fir = sent.find(pid)->second.first;
+	int sec = sent.find(pid)->second.second;
+	if(fir < max && sec == max){
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+bool can_send_from_second(int pid) {
+	const int max = (int) pow(2.0, (float) (pid - 1));
+	int fir = sent.find(pid)->second.first;
+	int sec = sent.find(pid)->second.second;
+	if(fir == max && sec < max){
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+bool cannot_send_from_both(int pid) {
+	const int max = (int) pow(2.0, (float) (pid - 1));
+	int fir = sent.find(pid)->second.first;
+	int sec = sent.find(pid)->second.second;
+
+	return (fir == max && sec == max);
+}
+
+void reset_counters_sent(int pid) {
+	sent.find(pid)->second.first = 0;
+	sent.find(pid)->second.second = 0;
+}
 
 void increment_received(int pid) {
 	if(received.find(pid) == received.end()) {
@@ -161,21 +238,37 @@ int main(int argc, char **argv) {
 	}
 	else { // Other CPUs
 		while(true){
-			if(!mynums_1.empty() && !mynums_2.empty()) {
+			if(can_send_from_both(myid) && (!mynums_1.empty() && !mynums_2.empty())) {
 				//Compare and send
 				if(mynums_1.front() > mynums_2.front()) {
 					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
 					MPI_Wait(&request, &stat);
 					mynums_2.pop();
+					increment_sent(myid, second);
 				}
 				else {
 					MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
 					MPI_Wait(&request, &stat);
 					mynums_1.pop();
+					increment_sent(myid, first);
 				}
 			}
-			
-			
+			else if(can_send_from_first(myid) && !mynums_1.empty()) {
+				MPI_Isend(&mynums_1.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+				MPI_Wait(&request, &stat);
+				mynums_1.pop();
+				increment_sent(myid, first);
+			}
+			else if(can_send_from_second(myid) && !mynums_2.empty()) {
+				MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+				MPI_Wait(&request, &stat);
+				mynums_2.pop();
+				increment_sent(myid, second);
+			}
+			else if(cannot_send_from_both(myid)) {
+				reset_counters_sent(myid);
+			}
+			/*
 			else if(will_recv(myid) == false) {
 				if(mynums_1.empty() && !mynums_2.empty()) {
 					MPI_Isend(&mynums_2.front(), 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
@@ -192,7 +285,7 @@ int main(int argc, char **argv) {
 					break;
 				}
 			}
-
+			*/
 			else {
 				//Is there something to receive?
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
