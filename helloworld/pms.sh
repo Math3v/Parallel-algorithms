@@ -1,8 +1,22 @@
 #!/bin/bash
 
+dd if=/dev/random of=random.dat bs=1 count=$1
+F_NUMPROC=`echo "l($1)/l(2)" | bc -l`
+NUMPROC=${F_NUMPROC%.*}
+((NUMPROC++))
+
+echo "Starting test with $1 values and $NUMPROC processors"
+
+
 mpic++ --prefix /usr/local/share/OpenMPI -g -o pms pms.cpp
 
-mpirun --prefix /usr/local/share/OpenMPI -np $1 pms
+START=$(($(date +%s%N)/1000000))
+mpirun --prefix /usr/local/share/OpenMPI -np $NUMPROC pms
 #mpirun --prefix /usr/local/share/OpenMPI -np $1 -n $1 xterm -e gdb -q -tui -x gdb.txt ./pms
+END=$(($(date +%s%N)/1000000))
 
-rm -f hello
+echo "Start $START"
+echo "End $END"
+echo "`expr $END - $START`"
+
+rm -f pms
