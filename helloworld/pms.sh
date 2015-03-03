@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dd if=/dev/random of=random.dat bs=1 count=$1
+dd if=/dev/random of=numbers bs=1 count=$1
 F_NUMPROC=`echo "l($1)/l(2)" | bc -l`
 NUMPROC=${F_NUMPROC%.*}
 ((NUMPROC++))

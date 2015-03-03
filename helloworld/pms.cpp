@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
 	if(myid == 0) { // Root CPU
-		ifstream myFile ("random.dat", ios::binary);
+		ifstream myFile ("numbers", ios::binary);
 		if(myFile.is_open()) {
 			unsigned int cnt = 0;
 			while(myFile.good()) {
