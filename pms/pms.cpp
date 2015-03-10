@@ -17,7 +17,7 @@ enum which_t {
 
 map <int, pair<int, int> > sent;
 map <int, int> counters;
-int last_number = 0xFFFFFFFF;
+int last_number = 0xFFFFFFFE;
 
 void increment_sent(int pid, enum which_t which) {
 	int recv;
@@ -122,12 +122,21 @@ int main(int argc, char **argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
 	if(myid == 0) { // Root CPU
-		ifstream myFile ("numbers", ios::binary);
+		ifstream myFile ("numbers", ios::binary | ios::out );
 		if(myFile.is_open()) {
+
+			/* File size */
+			myFile.seekg(0, ios::end);
+			size_t size = myFile.tellg();
+			myFile.seekg(0, ios::beg);
+
+			//cout << "File size is: " << size << endl;
+
 			unsigned int cnt = 0;
-			while(myFile.good()) {
+			while(cnt < size) {
 				myFile.read(data ,1);
-				number = (int) ((*data) + 128);
+				//number = (int) ((*data) + 128);
+				number = (int) (*data);
 				cout << number << " ";
 
 				if(cnt % 2 == 0) {
