@@ -4,18 +4,14 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
-#include <chrono>
+#include <ctime>
 
 using namespace std;
-using namespace std::chrono;
 
 #define OUT_VALS_
 #define OUT_TIME
 #define BUF_1_TAG 0
 #define BUF_2_TAG 1
-#define DTIME(t1, t2) duration_cast<microseconds>( t2 - t1 ).count()
-
-typedef high_resolution_clock::time_point chtime;
 
 enum which_t {
 	first,
@@ -123,7 +119,7 @@ int main(int argc, char **argv) {
 	int flag;
 	int received = 0;
 	bool send;
-	std::chrono::high_resolution_clock::time_point t1,t2;
+	clock_t t1,t2;
 
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -141,7 +137,7 @@ int main(int argc, char **argv) {
 			//cout << "File size is: " << size << endl;
 
 			/* Start time counting */
-			t1 = high_resolution_clock::now();
+			t1 = clock();
 			unsigned int cnt = 0;
 			while(cnt < size) {
 				myFile.read(data ,1);
@@ -161,7 +157,7 @@ int main(int argc, char **argv) {
 				}
 				++cnt;
 			}
-			t2 = high_resolution_clock::now();
+			t2 = clock();
 			myFile.close();
 			#ifdef OUT_VALS
 			cout << endl;
@@ -194,7 +190,7 @@ int main(int argc, char **argv) {
 					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
 					if(received == 0) {
 						//cout << "Received is 0" << endl;
-						t1 = high_resolution_clock::now();
+						t1 = clock();
 					}
 					++received;
 
@@ -242,7 +238,7 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		t2 = high_resolution_clock::now();
+		t2 = clock();
 	}
 	else { // Other CPUs		
 		while(true){
@@ -283,7 +279,7 @@ int main(int argc, char **argv) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 					if(received == 0){
 						//cout << "Received is 0" << endl;
-						t1 = high_resolution_clock::now();
+						t1 = clock();
 					}
 					++received;
 
@@ -302,12 +298,11 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		t2 = high_resolution_clock::now();
+		t2 = clock();
 	}
 
 	#ifdef OUT_TIME
-	auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-	cout << duration << endl;
+	cout << (clock_t) (t2 - t1) << endl;
 	#endif
 
 	free(data);
