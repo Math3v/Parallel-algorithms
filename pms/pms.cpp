@@ -4,11 +4,18 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
+#include <chrono>
 
 using namespace std;
+using namespace std::chrono;
 
+#define OUT_VALS_
+#define OUT_TIME
 #define BUF_1_TAG 0
 #define BUF_2_TAG 1
+#define DTIME(t1, t2) duration_cast<microseconds>( t2 - t1 ).count()
+
+typedef high_resolution_clock::time_point chtime;
 
 enum which_t {
 	first,
@@ -116,6 +123,7 @@ int main(int argc, char **argv) {
 	int flag;
 	int received = 0;
 	bool send;
+	std::chrono::high_resolution_clock::time_point t1,t2;
 
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -132,12 +140,16 @@ int main(int argc, char **argv) {
 
 			//cout << "File size is: " << size << endl;
 
+			/* Start time counting */
+			t1 = high_resolution_clock::now();
 			unsigned int cnt = 0;
 			while(cnt < size) {
 				myFile.read(data ,1);
 				//number = (int) ((*data) + 128);
 				number = (int) (*data);
+				#ifdef OUT_VALS
 				cout << number << " ";
+				#endif
 
 				if(cnt % 2 == 0) {
 					MPI_Isend(&number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
@@ -149,22 +161,29 @@ int main(int argc, char **argv) {
 				}
 				++cnt;
 			}
+			t2 = high_resolution_clock::now();
 			myFile.close();
+			#ifdef OUT_VALS
 			cout << endl;
+			#endif
 		}
 
 		MPI_Isend(&last_number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
 		MPI_Wait(&request, &stat);
 	}
-	else if(myid == (numprocs - 1)) { // Last CPU
+	else if(myid == (numprocs - 1)) { // Last CPU	
 		while(true) {
 			if(!mynums_1.empty() && !mynums_2.empty()) {
 				if(mynums_1.front() < mynums_2.front()) {
+					#ifdef OUT_VALS
 					cout << (int) mynums_1.front() << endl;
+					#endif
 					mynums_1.pop();
 				}
 				else {
+					#ifdef OUT_VALS
 					cout << (int) mynums_2.front() << endl;
+					#endif
 					mynums_2.pop();
 				}
 			}
@@ -173,6 +192,11 @@ int main(int argc, char **argv) {
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
+					if(received == 0) {
+						//cout << "Received is 0" << endl;
+						t1 = high_resolution_clock::now();
+					}
+					++received;
 
 					if(number == last_number) {
 						//cout << "1 " << mynums_1.front() << " 2 " << mynums_2.front() << endl;
@@ -180,20 +204,28 @@ int main(int argc, char **argv) {
 							//cout << "1 " << mynums_1.front() << " 2 " << mynums_2.front() << endl;
 							if(!mynums_1.empty() && !mynums_2.empty()) {
 								if(mynums_1.front() < mynums_2.front()) {
+									#ifdef OUT_VALS
 									cout << (int) mynums_1.front() << endl;
+									#endif
 									mynums_1.pop();
 								}
 								else {
+									#ifdef OUT_VALS
 									cout << (int) mynums_2.front() << endl;
+									#endif
 									mynums_2.pop();
 								}
 							}
 							else if(mynums_1.empty() && !mynums_2.empty()) {
+								#ifdef OUT_VALS
 								cout << (int) mynums_2.front() << endl;
+								#endif
 								mynums_2.pop();
 							}
 							else if(!mynums_1.empty() && mynums_2.empty()) {
+								#ifdef OUT_VALS
 								cout << (int) mynums_1.front() << endl;
+								#endif
 								mynums_1.pop();
 							}
 						}
@@ -209,11 +241,10 @@ int main(int argc, char **argv) {
 					}
 				}
 			}
-
-			
 		}
+		t2 = high_resolution_clock::now();
 	}
-	else { // Other CPUs
+	else { // Other CPUs		
 		while(true){
 			if(can_send_from_both(myid) && (!mynums_1.empty() && !mynums_2.empty())) {
 				//Compare and send
@@ -250,6 +281,11 @@ int main(int argc, char **argv) {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+					if(received == 0){
+						//cout << "Received is 0" << endl;
+						t1 = high_resolution_clock::now();
+					}
+					++received;
 
 					if(number == last_number) {
 						MPI_Isend(&last_number, 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
@@ -266,7 +302,13 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
+		t2 = high_resolution_clock::now();
 	}
+
+	#ifdef OUT_TIME
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+	cout << duration << endl;
+	#endif
 
 	free(data);
 	MPI_Finalize();

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dd if=/dev/random of=numbers bs=1 count=$1 >& /dev/null
+dd if=/dev/random of=numbers bs=$1 count=1 >& /dev/null
 F_NUMPROC=`echo "l($1)/l(2)" | bc -l`
 NUMPROC=${F_NUMPROC%.*}
 ((NUMPROC++))
@@ -8,7 +8,7 @@ NUMPROC=${F_NUMPROC%.*}
 #echo "Starting test with $1 values and $NUMPROC processors"
 
 
-mpic++ --prefix /usr/local/share/OpenMPI -g -o pms pms.cpp
+mpic++ --prefix /usr/local/share/OpenMPI -g -std=c++11 -o pms pms.cpp
 
 START=$(($(date +%s%N)/1000000))
 mpirun --prefix /usr/local/share/OpenMPI -np $NUMPROC pms
