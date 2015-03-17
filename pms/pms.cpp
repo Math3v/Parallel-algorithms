@@ -5,6 +5,7 @@
 #include <fstream>
 #include <queue>
 #include <ctime>
+#include <stdio.h>
 
 using namespace std;
 
@@ -302,7 +303,8 @@ int main(int argc, char **argv) {
 	}
 
 	#ifdef OUT_TIME
-	cout << ((double) (t2 - t1)) / CLOCKS_PER_SEC << endl;
+	double diff = ((double) t2 - t1) / CLOCKS_PER_SEC * 1000;
+	printf("%lf\n", diff);
 	#endif
 
 	free(data);
