@@ -302,7 +302,7 @@ int main(int argc, char **argv) {
 	}
 
 	#ifdef OUT_TIME
-	cout << double(t2 - t1) / CLOCKS_PER_SEC * 1000 << endl;
+	cout << ((double) (t2 - t1)) / CLOCKS_PER_SEC << endl;
 	#endif
 
 	free(data);
