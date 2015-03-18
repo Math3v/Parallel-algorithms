@@ -4,7 +4,6 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
-#include <ctime>
 #include <stdio.h>
 
 using namespace std;
@@ -120,7 +119,7 @@ int main(int argc, char **argv) {
 	int flag;
 	int received = 0;
 	bool send;
-	clock_t begin, end;
+	double begin, end;
 
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -138,7 +137,7 @@ int main(int argc, char **argv) {
 			//cout << "File size is: " << size << endl;
 
 			/* Start time counting */
-			begin = clock();
+			begin = MPI_Wtime();
 			unsigned int cnt = 0;
 			while(cnt < size) {
 				myFile.read(data ,1);
@@ -158,7 +157,7 @@ int main(int argc, char **argv) {
 				}
 				++cnt;
 			}
-			end = clock();
+			end = MPI_Wtime();
 			myFile.close();
 			#ifdef OUT_VALS
 			cout << endl;
@@ -191,7 +190,7 @@ int main(int argc, char **argv) {
 					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
 					if(received == 0) {
 						//cout << "Received is 0" << endl;
-						begin = clock();
+						begin = MPI_Wtime();
 					}
 					++received;
 
@@ -239,7 +238,7 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		end = clock();
+		end = MPI_Wtime();
 	}
 	else { // Other CPUs		
 		while(true){
@@ -280,7 +279,7 @@ int main(int argc, char **argv) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 					if(received == 0){
 						//cout << "Received is 0" << endl;
-						begin = clock();
+						begin = MPI_Wtime();
 					}
 					++received;
 
@@ -299,12 +298,11 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		end = clock();
+		end = MPI_Wtime();
 	}
 
 	#ifdef OUT_TIME
-	double elapsed_time = double(end - begin) / CLOCKS_PER_SEC;
-	printf("%f\n", elapsed_time);
+	printf("%f\n", (end - begin));
 	#endif
 
 	free(data);
