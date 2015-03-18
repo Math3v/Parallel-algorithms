@@ -12,5 +12,5 @@ do
 	T=`./pms.sh "$RES" | paste -s -d '+' | bc`
 
 	echo "$F+$S+$T"
-	echo "$F+$S+$T/3" | bc
+	echo "scale=6;($F+$S+$T)/3" | bc
 done
