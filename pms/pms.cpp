@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 				}
 				++cnt;
 			}
-			t2 = clock();
+			t1 = clock() - t1;
 			myFile.close();
 			#ifdef OUT_VALS
 			cout << endl;
@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		t2 = clock();
+		t1 = clock() - t1;
 	}
 	else { // Other CPUs		
 		while(true){
@@ -299,12 +299,12 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		t2 = clock();
+		t1 = clock() - t1;
 	}
 
 	#ifdef OUT_TIME
 	double diff = ((double) t2 - t1) / CLOCKS_PER_SEC * 1000;
-	printf("%lf\n", diff);
+	printf("%d\n", diff);
 	#endif
 
 	free(data);
