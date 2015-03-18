@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
 	int flag;
 	int received = 0;
 	bool send;
-	clock_t t1,t2;
+	clock_t begin, end;
 
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
 			//cout << "File size is: " << size << endl;
 
 			/* Start time counting */
-			t1 = clock();
+			begin = clock();
 			unsigned int cnt = 0;
 			while(cnt < size) {
 				myFile.read(data ,1);
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 				}
 				++cnt;
 			}
-			t1 = clock() - t1;
+			end = clock();
 			myFile.close();
 			#ifdef OUT_VALS
 			cout << endl;
@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
 					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
 					if(received == 0) {
 						//cout << "Received is 0" << endl;
-						t1 = clock();
+						begin = clock();
 					}
 					++received;
 
@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		t1 = clock() - t1;
+		end = clock();
 	}
 	else { // Other CPUs		
 		while(true){
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 					if(received == 0){
 						//cout << "Received is 0" << endl;
-						t1 = clock();
+						begin = clock();
 					}
 					++received;
 
@@ -299,12 +299,12 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		t1 = clock() - t1;
+		end = clock();
 	}
 
 	#ifdef OUT_TIME
-	double diff = ((double) t2 - t1) / CLOCKS_PER_SEC * 1000;
-	printf("%d\n", diff);
+	double elapsed_time = double(end - begin) / CLOCKS_PER_SEC;
+	printf("%f\n", elapsed_time);
 	#endif
 
 	free(data);
