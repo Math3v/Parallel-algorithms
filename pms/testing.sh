@@ -1,16 +1,27 @@
 #!/bin/bash
+#set -x
 
 RES=0
+TOTAL=0
+TESTRUN=100
 
 for i in {2..14}
 do
 	RES=`echo "2^$i" | bc`
 	echo "$RES"
 
-	F=`./pms.sh "$RES" | paste -s -d '+' | bc`
-	S=`./pms.sh "$RES" | paste -s -d '+' | bc`
-	T=`./pms.sh "$RES" | paste -s -d '+' | bc`
+	for (( c=1; c<=$TESTRUN; c++ ))
+	do
+		ARR[$c]=`./pms.sh "$RES" | paste -s -d '+' | bc`
+		#echo "${ARR[$c]}"
+	done
 
-	echo "$F+$S+$T"
-	echo "scale=6;($F+$S+$T)/3" | bc
+	for var in "${ARR[@]}"
+	do
+		var=`echo "(0$var*10000000)/1" | bc`
+		#echo "From bc $var"
+		TOTAL=$(($TOTAL + $var))
+	done
+	average=$(($TOTAL/$TESTRUN))
+	echo "Average $average"
 done
