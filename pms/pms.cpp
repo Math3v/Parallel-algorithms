@@ -8,10 +8,11 @@
 
 using namespace std;
 
-#define OUT_VALS_
+#define _OUT_VALS
 #define OUT_TIME
 #define BUF_1_TAG 0
 #define BUF_2_TAG 1
+#define LAST_NUMBER 0xFFFFFFFE
 
 enum which_t {
 	first,
@@ -19,9 +20,14 @@ enum which_t {
 };
 
 map <int, pair<int, int> > sent;
-map <int, int> counters;
-int last_number = 0xFFFFFFFE;
+//map <int, int> counters;
+//int last_number = 0xFFFFFFFE;
 double begin, end;
+
+bool is_last_number(int *num) {
+	const int last_number = LAST_NUMBER;
+	return (last_number == *num);
+}
 
 void increment_sent(int pid, enum which_t which) {
 	int recv;
@@ -96,6 +102,8 @@ void reset_counters_sent(int pid) {
 }
 
 int get_tag(int pid) {
+	static map <int, int> counters;
+
 	if(counters.find(pid) == counters.end()) {
 		counters[pid] = 0;
 	}
@@ -121,6 +129,7 @@ int main(int argc, char **argv) {
 	int flag;
 	int received = 0;
 	bool send;
+	int lnum = LAST_NUMBER;
 	
 
 	MPI_Init(NULL, NULL);
@@ -139,7 +148,7 @@ int main(int argc, char **argv) {
 			//cout << "File size is: " << size << endl;
 
 			/* Start time counting */
-			//begin = MPI_Wtime();
+			begin = MPI_Wtime();
 			unsigned int cnt = 0;
 			while(cnt < size) {
 				myFile.read(data ,1);
@@ -166,12 +175,14 @@ int main(int argc, char **argv) {
 			#endif
 		}
 
-		MPI_Isend(&last_number, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
+		MPI_Isend(&lnum, 1, MPI_INT, 1, BUF_1_TAG, MPI_COMM_WORLD, &request);
 		MPI_Wait(&request, &stat);
 	}
 	else if(myid == (numprocs - 1)) { // Last CPU	
 		while(true) {
 			if(!mynums_1.empty() && !mynums_2.empty()) {
+				/* Last CPU started working */
+				begin = MPI_Wtime();
 				if(mynums_1.front() < mynums_2.front()) {
 					#ifdef OUT_VALS
 					cout << (int) mynums_1.front() << endl;
@@ -196,7 +207,7 @@ int main(int argc, char **argv) {
 					}
 					++received;
 
-					if(number == last_number) {
+					if(is_last_number(&number)) {
 						//cout << "1 " << mynums_1.front() << " 2 " << mynums_2.front() << endl;
 						while(!mynums_1.empty() || !mynums_2.empty()) {
 							//cout << "1 " << mynums_1.front() << " 2 " << mynums_2.front() << endl;
@@ -285,8 +296,8 @@ int main(int argc, char **argv) {
 					}
 					++received;
 
-					if(number == last_number) {
-						MPI_Isend(&last_number, 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
+					if(is_last_number(&number)) {
+						MPI_Isend(&lnum, 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
 						MPI_Wait(&request, &stat);
 						break;
 					}
