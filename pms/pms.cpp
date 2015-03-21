@@ -21,11 +21,13 @@ enum which_t {
 map <int, pair<int, int> > sent;
 map <int, int> counters;
 int last_number = 0xFFFFFFFE;
+double begin, end;
 
 void increment_sent(int pid, enum which_t which) {
 	int recv;
 	if(sent.find(pid) == sent.end()) {
 		sent[pid] = make_pair(0, 0);	
+		begin = MPI_Wtime();
 	}
 	if(which == first) {
 		recv = sent.find(pid)->second.first;
@@ -119,7 +121,7 @@ int main(int argc, char **argv) {
 	int flag;
 	int received = 0;
 	bool send;
-	double begin, end;
+	
 
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -137,7 +139,7 @@ int main(int argc, char **argv) {
 			//cout << "File size is: " << size << endl;
 
 			/* Start time counting */
-			begin = MPI_Wtime();
+			//begin = MPI_Wtime();
 			unsigned int cnt = 0;
 			while(cnt < size) {
 				myFile.read(data ,1);
@@ -190,7 +192,7 @@ int main(int argc, char **argv) {
 					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
 					if(received == 0) {
 						//cout << "Received is 0" << endl;
-						begin = MPI_Wtime();
+						//begin = MPI_Wtime();
 					}
 					++received;
 
@@ -279,7 +281,7 @@ int main(int argc, char **argv) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 					if(received == 0){
 						//cout << "Received is 0" << endl;
-						begin = MPI_Wtime();
+						//begin = MPI_Wtime(); // Fail!!
 					}
 					++received;
 
