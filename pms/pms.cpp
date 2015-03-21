@@ -13,6 +13,7 @@ using namespace std;
 #define BUF_1_TAG 0
 #define BUF_2_TAG 1
 #define LAST_NUMBER 0xFFFFFFFE
+#define FILENAME "numbers"
 
 enum which_t {
 	first,
@@ -22,7 +23,7 @@ enum which_t {
 map <int, pair<int, int> > sent;
 //map <int, int> counters;
 //int last_number = 0xFFFFFFFE;
-double begin, end;
+static double begin, end;
 
 bool is_last_number(int *num) {
 	const int last_number = LAST_NUMBER;
@@ -33,7 +34,7 @@ void increment_sent(int pid, enum which_t which) {
 	int recv;
 	if(sent.find(pid) == sent.end()) {
 		sent[pid] = make_pair(0, 0);	
-		begin = MPI_Wtime();
+		//begin = MPI_Wtime();
 	}
 	if(which == first) {
 		recv = sent.find(pid)->second.first;
@@ -137,7 +138,7 @@ int main(int argc, char **argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
 	if(myid == 0) { // Root CPU
-		ifstream myFile ("numbers", ios::binary | ios::out );
+		ifstream myFile (FILENAME, ios::binary | ios::out );
 		if(myFile.is_open()) {
 
 			/* File size */
@@ -182,7 +183,7 @@ int main(int argc, char **argv) {
 		while(true) {
 			if(!mynums_1.empty() && !mynums_2.empty()) {
 				/* Last CPU started working */
-				begin = MPI_Wtime();
+				//begin = MPI_Wtime();
 				if(mynums_1.front() < mynums_2.front()) {
 					#ifdef OUT_VALS
 					cout << (int) mynums_1.front() << endl;
@@ -203,7 +204,7 @@ int main(int argc, char **argv) {
 					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
 					if(received == 0) {
 						//cout << "Received is 0" << endl;
-						//begin = MPI_Wtime();
+						begin = MPI_Wtime();
 					}
 					++received;
 
@@ -292,7 +293,7 @@ int main(int argc, char **argv) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
 					if(received == 0){
 						//cout << "Received is 0" << endl;
-						//begin = MPI_Wtime(); // Fail!!
+						begin = MPI_Wtime(); // Fail!!
 					}
 					++received;
 
@@ -315,6 +316,7 @@ int main(int argc, char **argv) {
 	}
 
 	#ifdef OUT_TIME
+	//printf("Begin %f end %f\n", begin, end);
 	printf("%f\n", (end - begin));
 	#endif
 
