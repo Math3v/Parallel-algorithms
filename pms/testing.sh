@@ -16,13 +16,13 @@ MAX=$1
 for (( i=1; i<=$MAX; i++))
 do
 	RES=`echo "2^$i" | bc`
-	echo "$RES"
+	echo -n "$RES"
 
 	for (( c=1; c<=$TESTRUN; c++ ))
 	do
 		#ARR[$c]=`./pms.sh "$RES" | tac | paste -s -d '-' | bc`
 		ARR[$c]=`./pms.sh "$RES"`
-		echo "${ARR[$c]}"
+		#echo "${ARR[$c]}"
 	done
 
 	TOTAL=0
@@ -34,5 +34,5 @@ do
 	done
 	#echo "$TOTAL / $TESTRUN"
 	average=$(($TOTAL/$TESTRUN))
-	echo "Average $average"
+	echo "$average"
 done
