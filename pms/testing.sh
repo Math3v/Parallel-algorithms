@@ -20,16 +20,19 @@ do
 
 	for (( c=1; c<=$TESTRUN; c++ ))
 	do
-		ARR[$c]=`./pms.sh "$RES" | paste -s -d '+' | bc`
-		#echo "${ARR[$c]}"
+		#ARR[$c]=`./pms.sh "$RES" | tac | paste -s -d '-' | bc`
+		ARR[$c]=`./pms.sh "$RES"`
+		echo "${ARR[$c]}"
 	done
 
+	TOTAL=0
 	for var in "${ARR[@]}"
 	do
-		var=`echo "(0$var*10000000)/1" | bc`
+		#var=`echo "(0$var*10000000)/1" | bc`
 		#echo "From bc $var"
 		TOTAL=$(($TOTAL + $var))
 	done
+	#echo "$TOTAL / $TESTRUN"
 	average=$(($TOTAL/$TESTRUN))
 	echo "Average $average"
 done
