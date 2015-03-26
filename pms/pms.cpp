@@ -1,10 +1,10 @@
 #include <mpi.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <iostream>
 #include <fstream>
 #include <queue>
-#include <stdio.h>
 
 using namespace std;
 
@@ -21,8 +21,6 @@ enum which_t {
 };
 
 map <int, pair<int, int> > sent;
-//map <int, int> counters;
-//int last_number = 0xFFFFFFFE;
 static double begin, end;
 
 bool is_last_number(int *num) {
@@ -117,6 +115,21 @@ int get_tag(int pid) {
 	return (int) fmod(outBuff, 2);
 }
 
+void timer(){
+	static double timer = 0;
+
+	if(timer == 0){
+		timer = MPI_Wtime();
+	}
+	else{
+		#ifdef OUT_TIME
+		printf("%d\n", (int) ((MPI_Wtime() - timer) * 1000000));
+		#else
+		;
+		#endif
+	}
+}
+
 int main(int argc, char **argv) {
 	int numprocs;
 	int myid;
@@ -131,12 +144,12 @@ int main(int argc, char **argv) {
 	int received = 0;
 	bool send;
 	int lnum = LAST_NUMBER;
-	
 
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
+	MPI_Barrier(MPI_COMM_WORLD);
 	if(myid == 0) { // Root CPU
 		ifstream myFile (FILENAME, ios::binary | ios::out );
 		if(myFile.is_open()) {
@@ -149,7 +162,7 @@ int main(int argc, char **argv) {
 			//cout << "File size is: " << size << endl;
 
 			/* Start time counting */
-			begin = MPI_Wtime();
+			timer();
 			unsigned int cnt = 0;
 			while(cnt < size) {
 				myFile.read(data ,1);
@@ -182,8 +195,6 @@ int main(int argc, char **argv) {
 	else if(myid == (numprocs - 1)) { // Last CPU	
 		while(true) {
 			if(!mynums_1.empty() && !mynums_2.empty()) {
-				/* Last CPU started working */
-				//begin = MPI_Wtime();
 				if(mynums_1.front() < mynums_2.front()) {
 					#ifdef OUT_VALS
 					cout << (int) mynums_1.front() << endl;
@@ -201,12 +212,6 @@ int main(int argc, char **argv) {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-					//cout << "Received " << number << " at " << stat.MPI_TAG << endl;
-					if(received == 0) {
-						//cout << "Received is 0" << endl;
-						begin = MPI_Wtime();
-					}
-					++received;
 
 					if(is_last_number(&number)) {
 						//cout << "1 " << mynums_1.front() << " 2 " << mynums_2.front() << endl;
@@ -252,7 +257,6 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		end = MPI_Wtime();
 	}
 	else { // Other CPUs		
 		while(true){
@@ -291,11 +295,6 @@ int main(int argc, char **argv) {
 				MPI_Iprobe(myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
 				if(flag == true) {
 					MPI_Recv(&number, 1, MPI_INT, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-					if(received == 0){
-						//cout << "Received is 0" << endl;
-						begin = MPI_Wtime(); // Fail!!
-					}
-					++received;
 
 					if(is_last_number(&number)) {
 						MPI_Isend(&lnum, 1, MPI_INT, myid + 1, get_tag(myid), MPI_COMM_WORLD, &request);
@@ -312,13 +311,11 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-		end = MPI_Wtime();
 	}
 
-	#ifdef OUT_TIME
-	//printf("Begin %f end %f\n", begin, end);
-	printf("%f\n", (end - begin));
-	#endif
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(myid == 0)
+		timer();
 
 	free(data);
 	MPI_Finalize();
