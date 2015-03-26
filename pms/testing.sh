@@ -16,7 +16,7 @@ MAX=$1
 for (( i=1; i<=$MAX; i++))
 do
 	RES=`echo "2^$i" | bc`
-	echo -n "$RES"
+	echo -n "$RES "
 
 	for (( c=1; c<=$TESTRUN; c++ ))
 	do
