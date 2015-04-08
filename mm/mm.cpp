@@ -4,10 +4,13 @@
 *	File: mm.cpp
 */
 
+#define DEBUG
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <assert.h>
 #include <iostream>
 #include <fstream>
 #include <queue>
@@ -168,6 +171,28 @@ int get_cols() {
 	}
 }
 
+int get_rows(matrix m) {
+	matrix::iterator i;
+	int rows = 0;
+
+	for(i = m.begin(); i != m.end(); ++i) {
+		++rows;
+	}
+
+	return rows;
+}
+
+int get_cols(matrix m) {
+	row::iterator i;
+	int cols = 0;
+
+	for(i = m.front().begin(); i != m.front().end(); ++i) {
+		++cols;
+	}
+
+	return cols;
+}
+
 row array_to_row(int *array, int size) {
 	row r;
 	for(int i = 0; i < size; ++i) {
@@ -177,14 +202,29 @@ row array_to_row(int *array, int size) {
 	return r;
 }
 
+row receive_vector() {
+	int number_amount, *received;
+	MPI_Status stat;
+	row ret;
+
+	MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+	MPI_Get_count(&stat, MPI_INT, &number_amount);
+
+	received = (int *) malloc(number_amount * sizeof(int));
+	MPI_Recv(received, number_amount, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+	
+	ret = array_to_row(received, number_amount);
+
+	free(received);
+
+	return ret;
+}
+
 int main(int argc, char **argv) {
 	int myid, numprocs;	
 	int rows, cols;
 	row my_row;
 	MPI_Status stat;
-	int number_amount;
-	int *received;
-	//my_row.reserve(10);
 
 	/* OpenMPI Initialization */
 	MPI_Init(NULL, NULL);
@@ -214,6 +254,9 @@ int main(int argc, char **argv) {
 
 		cout << "Rows " << rows << " cols " << cols << endl;
 		cout << "MatA.front() " << matA[0][0] << endl;
+
+		cout << "MatA rows " << get_rows(matA) << " cols " << get_cols(matA) << endl;
+		cout << "MatB rows " << get_rows(matB) << " cols " << get_cols(matB) << endl;
 
 		/* TODO: Swap matrices if needed */	
 		//if matA.rows == rows && matB.cols == cols
@@ -248,37 +291,17 @@ int main(int argc, char **argv) {
 			++index;
 		}
 	}
-	else if(myid == 4 || myid == 8 /* TODO */) {
-		MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-		MPI_Get_count(&stat, MPI_INT, &number_amount);
-
-		received = (int *) malloc(number_amount * sizeof(int));
-		cout << "Process " << myid << " received " << number_amount << " numbers at tag " << stat.MPI_TAG << endl;
-		MPI_Recv(received, number_amount, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-		
-		my_row = array_to_row(received, number_amount);
-		cout << "Print vector of process " << myid << " ";
-		print_vector(my_row);
-
-		free(received);
+	/* First columns but root process */
+	else if(myid != 0 && myid % cols == 0) {
+		my_row = receive_vector();
 	}
-	else if(myid >= 1 && myid <= 3 /* TODO */) {
-		MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-		MPI_Get_count(&stat, MPI_INT, &number_amount);
-
-		received = (int *) malloc(number_amount * sizeof(int));
-		cout << "Process " << myid << " received " << number_amount << " numbers at tag " << stat.MPI_TAG << endl;
-		MPI_Recv(received, number_amount, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-		
-		my_row = array_to_row(received, number_amount);
-		cout << "Print vector of process " << myid << " ";
-		print_vector(my_row);
-
-		free(received);
+	/* First row but root process */
+	else if(myid <= 3) {
+		my_row = receive_vector();
 	}
 
 
-	//MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
 	cout << "Process " << myid << " rows " << rows << " cols " << cols << endl;
 
 	/* Tell OpenMPI that there are no OpenMPI calls after this */
