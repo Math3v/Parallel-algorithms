@@ -262,6 +262,18 @@ int main(int argc, char **argv) {
 		//then DO NOT SWAP?
 		//else if otherwise then swap
 		//else WTF???
+		if(get_rows(matA) == rows && get_cols(matB) == cols){
+			cout << "Do not need swapping" << endl;
+		}
+		else if(get_rows(matB) == rows && get_cols(matA) == cols) {
+			/* Swap matrices */
+			cout << "Swapping needed" << endl;
+			swap(matA, matB);
+		}
+		else {
+			/* Something is wrong */
+			assert(3 == 2);
+		}
 	}
 
 	MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -315,21 +327,21 @@ int main(int argc, char **argv) {
 		int recv;
 
 		for(int i = 0; i < my_row.size(); ++i) {
-			int number_amount;
+			int number_amount, flag;
 			cout << "Proc " << myid << " waiting from " << (myid - cols) << endl;
-			MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
-			MPI_Get_count(&stat, MPI_INT, &number_amount);
-			cout << "Proc " << myid << " incoming " << number_amount << " numbers at " << stat.MPI_TAG << endl;
-			MPI_Recv(&recv, 1, MPI_INT, (myid - cols), HOR_TAG, MPI_COMM_WORLD, &stat);
+			//MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
+			//MPI_Get_count(&stat, MPI_INT, &number_amount);
+			//cout << "Proc " << myid << " incoming " << number_amount << " numbers at " << stat.MPI_TAG << endl;
+			MPI_Recv(&recv, 1, MPI_INT, (myid - cols), VER_TAG, MPI_COMM_WORLD, &stat);
 			sum += (my_row.at(i) * recv);
 
 			if(myid + cols < numprocs) {
 				cout << "Proc " << myid << " sending " << recv << " to " << (myid + cols) << endl;
-				MPI_Send(&recv, 1, MPI_INT, (myid + cols), HOR_TAG, MPI_COMM_WORLD);
+				MPI_Send(&recv, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 				
 			}
 			cout << "Proc " << myid << " sending " << my_row.at(i) << " to " << (myid + 1) << endl;
-			MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + 1), VER_TAG, MPI_COMM_WORLD);
+			MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
 		}
 	}
 	/* First row but root process */
@@ -357,18 +369,47 @@ int main(int argc, char **argv) {
 	}
 	/* All other processes */
 	else {
-		int a, b;
+		int a, b, number_amount, flag;
 		while(true) {
+			/*MPI_Iprobe(myid - cols, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
+			if(!flag){
+				continue;
+			}
+			//MPI_Get_count(&stat, MPI_INT, &number_amount);
+			//cout << "Proc " << myid << " incoming " << number_amount << " numbers at " << stat.MPI_TAG << endl;
+			if(stat.MPI_TAG == HOR_TAG) {
+				cout << "Proc " << myid << " waiting from " << (myid - 1) << endl;
+				MPI_Recv(&a, 1, MPI_INT, (myid - 1), HOR_TAG, MPI_COMM_WORLD, &stat);
+			}
+			else if(stat.MPI_TAG == VER_TAG) {
+				MPI_Recv(&b, 1, MPI_INT, (myid - cols), VER_TAG, MPI_COMM_WORLD, &stat);
+			}
+			else {
+				assert(3 == 2);
+			}
+			*/
+
 			MPI_Recv(&b, 1, MPI_INT, (myid - cols), VER_TAG, MPI_COMM_WORLD, &stat);
 			if(b == last_number && myid + cols < numprocs) {
 				cout << "Proc " << myid << " sending " << last_number << " to " << (myid + cols) << endl;
 				MPI_Send(&last_number, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 				break;
 			}
-
+			else if(b == last_number) {
+				break;
+			}
 			MPI_Recv(&a, 1, MPI_INT, (myid - 1), HOR_TAG, MPI_COMM_WORLD, &stat);
-			
+
 			sum += (a*b);
+
+			if(((myid % cols) + 1) < cols) {
+				cout << "Proc " << myid << " sending " << a << " to " << (myid + 1) << endl;
+				MPI_Send(&a, 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
+			}
+			if(myid + cols < numprocs) {
+				cout << "Proc " << myid << " sending " << b << " to " << (myid + cols) << endl;
+				MPI_Send(&b, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+			}
 		}
 	}
 
