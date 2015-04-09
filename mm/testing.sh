@@ -8,7 +8,7 @@ TOTAL=0
 touch mat1
 touch mat2
 
-for i in {4..8}
+for i in {4..20}
 do
 	echo -n "Matrix $i x $i: "
 	MAX=$i
