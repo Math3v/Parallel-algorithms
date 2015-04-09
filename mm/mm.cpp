@@ -23,6 +23,7 @@ using namespace std;
 
 #define HOR_TAG 0
 #define VER_TAG 1
+#define RES_TAG 2
 
 /* vector of vectors of integers */
 typedef vector<vector<int> > matrix;
@@ -31,7 +32,7 @@ typedef vector<int> row;
 
 /* A * B = C*/
 matrix matA, matB, matC;
-const int MAX_NUMBERS = 100000;
+/* Notify process, it should end */
 int last_number = INT_MAX;
 
 void print_matrix(matrix m) {
@@ -417,6 +418,29 @@ int main(int argc, char **argv) {
 	//MPI_Barrier(MPI_COMM_WORLD);
 	//cout << "Process " << myid << " rows " << rows << " cols " << cols << endl;
 	cout << "Process " << myid << " result " << sum << endl;
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(myid == 0) {
+		my_row.clear();
+		my_row.push_back(sum);
+		for(int i = 1; i < numprocs; ++i) {
+			int recv;
+			MPI_Recv(&recv, 1, MPI_INT, i, RES_TAG, MPI_COMM_WORLD, &stat);
+			if(i % cols == 0) {
+				matC.push_back(my_row);
+				my_row.clear();
+			}
+			my_row.push_back(recv);
+			
+		}
+		
+		matC.push_back(my_row);
+		print_matrix(matC);
+	}
+	/* First column */
+	else {
+		MPI_Send(&sum, 1, MPI_INT, 0, RES_TAG, MPI_COMM_WORLD);
+	}
 
 	/* Tell OpenMPI that there are no OpenMPI calls after this */
 	MPI_Finalize();
