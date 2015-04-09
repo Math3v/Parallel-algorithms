@@ -153,21 +153,23 @@ int elements_count(matrix *m) {
 }
 
 int get_rows() {
-	if(matA.size() > matA.front().size()){
+	/*if(matA.size() > matA.front().size()){
 		return matA.size();
 	}
 	else {
 		return matA.front().size();
-	}
+	}*/
+	return matA.size();
 }
 
 int get_cols() {
-	if(matB.size() > matB.front().size()){
+	/*if(matB.size() > matB.front().size()){
 		return matB.size();
 	}
 	else {
 		return matB.front().size();
-	}
+	}*/
+	matB.front().size();
 }
 
 int get_rows(matrix m) {
@@ -269,7 +271,7 @@ int main(int argc, char **argv) {
 		else if(get_rows(matB) == rows && get_cols(matA) == cols) {
 			/* Swap matrices */
 			cout << "Swapping needed" << endl;
-			swap(matA, matB);
+			//swap(matA, matB);
 		}
 		else {
 			/* Something is wrong */
@@ -324,7 +326,8 @@ int main(int argc, char **argv) {
 	/* First column but root process */
 	else if(myid % cols == 0) {
 		my_row = receive_vector();
-		cout << "Proc " << myid << " received vector " << my_row.size() << endl;
+		cout << "Proc " << myid << " received vector " << my_row.size();
+		print_vector(my_row);
 		int recv;
 
 		for(int i = 0; i < my_row.size(); ++i) {
@@ -348,7 +351,8 @@ int main(int argc, char **argv) {
 	/* First row but root process */
 	else if(myid < cols) {
 		my_row = receive_vector();
-		cout << "Proc " << myid << " received vector " << my_row.size() << endl;
+		cout << "Proc " << myid << " received vector ";
+		print_vector(my_row);
 		int recv;
 
 		for(int i = 0; i < my_row.size(); ++i) {
@@ -433,7 +437,7 @@ int main(int argc, char **argv) {
 			my_row.push_back(recv);
 			
 		}
-		
+
 		matC.push_back(my_row);
 		print_matrix(matC);
 	}
