@@ -17,15 +17,12 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <climits>
 
 using namespace std;
 
 #define HOR_TAG 0
 #define VER_TAG 1
-#define COLS_TAG 3
-#define ROWS_TAG 4
-#define MATA_TAG 5
-#define MATB_TAG 6
 
 /* vector of vectors of integers */
 typedef vector<vector<int> > matrix;
@@ -35,6 +32,7 @@ typedef vector<int> row;
 /* A * B = C*/
 matrix matA, matB, matC;
 const int MAX_NUMBERS = 100000;
+int last_number = INT_MAX;
 
 void print_matrix(matrix m) {
 	matrix::iterator mi;
@@ -225,6 +223,7 @@ int main(int argc, char **argv) {
 	int rows, cols;
 	row my_row;
 	MPI_Status stat;
+	int sum = 0;
 
 	/* OpenMPI Initialization */
 	MPI_Init(NULL, NULL);
@@ -272,12 +271,13 @@ int main(int argc, char **argv) {
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	if(myid == 0) {
+		row a, b;
 
 		/* Propagate vectors to vertical processes */
 		int index = 1;
 		for(int i = cols; i < numprocs; i += cols) {
 			row r = get_line(&matA, index);
-			cout << "Sending line " << index << " to proc " << i << endl;
+			//cout << "Sending line " << index << " to proc " << i << endl;
 			MPI_Send(&r.front(), r.size(), MPI_INT, i, VER_TAG, MPI_COMM_WORLD);
 			++index;
 		}
@@ -286,23 +286,96 @@ int main(int argc, char **argv) {
 		index = 1;
 		for(int i = 1; i < cols; ++i) {
 			row r = get_column(&matB, index);
-			cout << "Sending column " << index << " to proc " << i << endl;
+			//cout << "Sending column " << index << " to proc " << i << endl;
 			MPI_Send(&r.front(), r.size(), MPI_INT, i, HOR_TAG, MPI_COMM_WORLD);
 			++index;
 		}
+
+		a = get_line(&matA, 0);
+		b = get_column(&matB, 0);
+
+		assert(a.size() == b.size());
+
+		for(int i = 0; i < a.size(); ++i) {
+			int ai = a.at(i);
+			int bi = b.at(i);
+
+			cout << "Proc " << myid << " sending " << a.at(i) << " to " << (myid + 1) << endl;
+			MPI_Send(&ai, 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
+			cout << "Proc " << myid << " sending " << b.at(i) << " to " << (myid + cols) << endl;
+			MPI_Send(&bi, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+
+			sum += (a.at(i) * b.at(i));
+		}
 	}
-	/* First columns but root process */
-	else if(myid != 0 && myid % cols == 0) {
+	/* First column but root process */
+	else if(myid % cols == 0) {
 		my_row = receive_vector();
+		cout << "Proc " << myid << " received vector " << my_row.size() << endl;
+		int recv;
+
+		for(int i = 0; i < my_row.size(); ++i) {
+			int number_amount;
+			cout << "Proc " << myid << " waiting from " << (myid - cols) << endl;
+			MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &stat);
+			MPI_Get_count(&stat, MPI_INT, &number_amount);
+			cout << "Proc " << myid << " incoming " << number_amount << " numbers at " << stat.MPI_TAG << endl;
+			MPI_Recv(&recv, 1, MPI_INT, (myid - cols), HOR_TAG, MPI_COMM_WORLD, &stat);
+			sum += (my_row.at(i) * recv);
+
+			if(myid + cols < numprocs) {
+				cout << "Proc " << myid << " sending " << recv << " to " << (myid + cols) << endl;
+				MPI_Send(&recv, 1, MPI_INT, (myid + cols), HOR_TAG, MPI_COMM_WORLD);
+				
+			}
+			cout << "Proc " << myid << " sending " << my_row.at(i) << " to " << (myid + 1) << endl;
+			MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + 1), VER_TAG, MPI_COMM_WORLD);
+		}
 	}
 	/* First row but root process */
-	else if(myid <= 3) {
+	else if(myid < cols) {
 		my_row = receive_vector();
+		cout << "Proc " << myid << " received vector " << my_row.size() << endl;
+		int recv;
+
+		for(int i = 0; i < my_row.size(); ++i) {
+			cout << "Proc " << myid << " waiting from " << (myid - 1) << endl;
+			MPI_Recv(&recv, 1, MPI_INT, (myid - 1), HOR_TAG, MPI_COMM_WORLD, &stat);
+			sum += (my_row.at(i) * recv);
+
+			if(myid + 1 < cols) {
+				cout << "Proc " << myid << " sending " << recv << " to " << (myid + 1) << endl;
+				MPI_Send(&recv, 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
+				
+			}
+			cout << "Proc " << myid << " sending " << my_row.at(i) << " to " << (myid + cols) << endl;
+			MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+		}
+
+		cout << "Proc " << myid << " sending " << last_number << " to " << (myid + cols) << endl;
+		MPI_Send(&last_number, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+	}
+	/* All other processes */
+	else {
+		int a, b;
+		while(true) {
+			MPI_Recv(&b, 1, MPI_INT, (myid - cols), VER_TAG, MPI_COMM_WORLD, &stat);
+			if(b == last_number && myid + cols < numprocs) {
+				cout << "Proc " << myid << " sending " << last_number << " to " << (myid + cols) << endl;
+				MPI_Send(&last_number, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+				break;
+			}
+
+			MPI_Recv(&a, 1, MPI_INT, (myid - 1), HOR_TAG, MPI_COMM_WORLD, &stat);
+			
+			sum += (a*b);
+		}
 	}
 
 
-	MPI_Barrier(MPI_COMM_WORLD);
-	cout << "Process " << myid << " rows " << rows << " cols " << cols << endl;
+	//MPI_Barrier(MPI_COMM_WORLD);
+	//cout << "Process " << myid << " rows " << rows << " cols " << cols << endl;
+	cout << "Process " << myid << " result " << sum << endl;
 
 	/* Tell OpenMPI that there are no OpenMPI calls after this */
 	MPI_Finalize();
