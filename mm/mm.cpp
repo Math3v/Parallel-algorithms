@@ -232,11 +232,18 @@ void timer(){
 	}
 	else{
 		#ifdef TIME
-			printf("%d\n", (int) ((MPI_Wtime() - timer) * 1000000));
+			printf("%lf\n",(MPI_Wtime() - timer));
 		#else
 			;
 		#endif
 	}
+}
+
+void swapvals( int *a, int *b ) {
+	int c;
+	c = *a;
+	*a = *b;
+	*b = c;
 }
 
 int main(int argc, char **argv) {
