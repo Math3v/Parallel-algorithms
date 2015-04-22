@@ -104,7 +104,7 @@ bool read_matrix(const char* filename, matrix *m) {
 		cout << "Line: " << line << "...";
 		#endif
 
-		if(line.length() < 2) {
+		if(line.length() <= 2) {
 			#ifdef DEBUG
 			cout << endl;
 			#endif
@@ -259,7 +259,7 @@ void timer(){
 	}
 	else{
 		#ifdef TIME
-			printf("%lf\n",(MPI_Wtime() - timer));
+			printf("%d\n",(int) ((MPI_Wtime() - timer) * 1000000000));
 		#else
 			;
 		#endif
