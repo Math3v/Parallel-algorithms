@@ -4,8 +4,9 @@
 *	File: mm.cpp
 */
 
-#define NDEBUG
+#define NO_DEBUG
 #define TIME
+#define NO_OUT
 
 #include <mpi.h>
 #include <stdio.h>
@@ -25,6 +26,8 @@ using namespace std;
 #define HOR_TAG 0
 #define VER_TAG 1
 #define RES_TAG 2
+
+#define MAXLEN 513
 
 /* vector of vectors of integers */
 typedef vector<vector<int> > matrix;
@@ -72,27 +75,51 @@ row split_line(string line) {
 	return tokens;
 }
 
-bool read_matrix(const char* filename, matrix *m) {
-	ifstream f;
-	f.open(filename, ios::in | ios::out );
+void remove_newline(char **str) {
+	int ln = strlen(*str);
+	char c = *(*str + ln - 1);
 
-	if(!f.is_open()) {
+	if( c == '\n' ){
+		*(*str + ln - 1) = '\0';
+	}
+	else {
+		return;
+	}
+}
+
+bool read_matrix(const char* filename, matrix *m) {
+	FILE *fr = fopen(filename, "r");
+	char *str = (char *) malloc(MAXLEN * sizeof(char));
+
+	if( fr == NULL ) {
 		cerr << "Cannot open file " << filename << endl;
 		return false;
 	}
 
-	string line;
-	while(!getline(f, line, '\n').eof()) {
+	while( fgets(str, MAXLEN, fr) != NULL ) {
+		remove_newline(&str);
+		string line(str);
+
+		#ifdef DEBUG
+		cout << "Line: " << line << "...";
+		#endif
 
 		if(line.length() < 2) {
+			#ifdef DEBUG
+			cout << endl;
+			#endif
+
 			continue;
 		}
 
 		row matrix_line = split_line(line);
+		#ifdef DEBUG
+		cout << "pushed" << endl;
+		#endif
 		(*m).push_back(matrix_line);
 	}
 
-	f.close();
+	fclose(fr);
 	return true;
 }
 
@@ -263,23 +290,31 @@ int main(int argc, char **argv) {
 
 		rows = get_rows();
 		cols = get_cols();
-
-		//cout << "Rows " << rows << " cols " << cols << endl;
-
-		/*
-		if(get_rows(matA) == rows && get_cols(matB) == cols){
-		//	cout << "Do not need swapping" << endl;
+/*
+		if(get_rows(matA) < get_rows(matB)){
+			#ifdef DEBUG
+			cout << "Do not need swapping" << endl;
+			#endif
 		}
-		else if(get_rows(matB) == rows && get_cols(matA) == cols) {
+		else if(get_rows(matA) >= get_rows(matB)) {
 			// Swap matrices 
-			//cout << "Swapping needed" << endl;
-			//swap(matA, matB);
+			#ifdef DEBUG
+			cout << "Swapping needed" << endl;
+			#endif
+			swap(matA, matB);
+			swapvals(&rows, &cols);
 		}
 		else {
 			// Something is wrong 
 			assert(3 == 2);
 		}
-		*/
+*/
+		#ifdef DEBUG
+		cout << "Rows " << rows << " cols " << cols << endl;
+		cout << "MatA rows " << get_rows(matA) << " cols " << get_cols(matA) << endl;
+		cout << "MatB rows " << get_rows(matB) << " cols " << get_cols(matB) << endl;
+		#endif
+		
 	}
 
 	MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -312,7 +347,11 @@ int main(int argc, char **argv) {
 		a = get_line(&matA, 0);
 		b = get_column(&matB, 0);
 
-		assert(a.size() == b.size());
+		if( a.size() != b.size() ) {
+			cerr << "Matrices cannot be multiplied" << endl;
+			MPI_Finalize();
+			return 1;
+		}
 
 		/* Start timer */
 		timer();
@@ -431,6 +470,9 @@ int main(int argc, char **argv) {
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	if(myid == 0) {
+		int r, c;
+		r = c = 0;
+
 		my_row.clear();
 		my_row.push_back(sum);
 		for(int i = 1; i < numprocs; ++i) {
@@ -439,13 +481,18 @@ int main(int argc, char **argv) {
 			if(i % cols == 0) {
 				matC.push_back(my_row);
 				my_row.clear();
+				++r;
 			}
 			my_row.push_back(recv);
 			
 		}
 
+		#ifdef OUT
+		++r;
+		printf("%d:%d\n", r, cols);
 		matC.push_back(my_row);
-		//print_matrix(matC);
+		print_matrix(matC);
+		#endif
 
 		/* End timer and print time elapsed */
 		timer();
