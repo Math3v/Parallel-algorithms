@@ -1,0 +1,5 @@
+Matrix 8 x 8: 53614286
+Matrix 9 x 9: 73354625
+Matrix 10 x 10: 86199206
+Matrix 11 x 11: 134356078
+Matrix 12 x 12: 142731294
