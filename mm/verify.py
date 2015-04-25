@@ -11,7 +11,7 @@ modes = [
     {'max_n': 40, 'max_m': 1, 'max_p': 1, 'runs': 10}, #row vector * 1x1
     {'max_n': 1, 'max_m': 1, 'max_p': 40, 'runs': 10}, #1x1 * column vector
     {'max_n': 7, 'max_m': 1, 'max_p': 7, 'runs': 10}, #row vector * column vector
-    {'max_n': 7, 'max_m': 10000, 'max_p': 7, 'runs': 100} #NxM * MxP
+    {'max_n': 7, 'max_m': 10000, 'max_p': 7, 'runs': 30} #NxM * MxP
 ]
 
 for mode in modes:
@@ -23,8 +23,8 @@ for mode in modes:
         p = np.random.randint(1, mode['max_p'] + 1)
         #mat1 = np.random.randint(-int_range, int_range, (n, m))
         #mat2 = np.random.randint(-int_range, int_range, (m, p))
-        mat1 = np.random.randint(0, 255, (n, m))
-        mat2 = np.random.randint(0, 255, (m, p))
+        mat1 = np.random.randint(-32768, 32768, (n, m))
+        mat2 = np.random.randint(-32768, 32768, (m, p))
 
         #Debug output
         print '[%d]: N is %d M is %d P is %d' % (i, n, m, p)
