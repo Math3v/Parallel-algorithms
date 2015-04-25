@@ -23,8 +23,8 @@ for mode in modes:
         p = np.random.randint(1, mode['max_p'] + 1)
         #mat1 = np.random.randint(-int_range, int_range, (n, m))
         #mat2 = np.random.randint(-int_range, int_range, (m, p))
-        mat1 = np.random.randint(-32768, 32768, (n, m))
-        mat2 = np.random.randint(-32768, 32768, (m, p))
+        mat1 = np.random.randint(-1024, 1024, (n, m))
+        mat2 = np.random.randint(-1024, 1024, (m, p))
 
         #Debug output
         print '[%d]: N is %d M is %d P is %d' % (i, n, m, p)
