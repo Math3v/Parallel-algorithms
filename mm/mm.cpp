@@ -5,8 +5,8 @@
 */
 
 #define NO_DEBUG
-#define TIME
-#define NO_OUT
+#define NO_TIME
+#define OUT
 
 #include <mpi.h>
 #include <stdio.h>
@@ -26,8 +26,6 @@ using namespace std;
 #define HOR_TAG 0
 #define VER_TAG 1
 #define RES_TAG 2
-
-#define MAXLEN 513
 
 /* vector of vectors of integers */
 typedef vector<vector<int> > matrix;
@@ -89,22 +87,25 @@ void remove_newline(char **str) {
 
 bool read_matrix(const char* filename, matrix *m) {
 	FILE *fr = fopen(filename, "r");
-	char *str = (char *) malloc(MAXLEN * sizeof(char));
+	char *str = NULL;
+	size_t len = 0;
+	unsigned int cnt = 0;
 
 	if( fr == NULL ) {
 		cerr << "Cannot open file " << filename << endl;
 		return false;
 	}
 
-	while( fgets(str, MAXLEN, fr) != NULL ) {
+	while( getline(&str, &len, fr) != -1 ) {
 		remove_newline(&str);
 		string line(str);
+		++cnt;
 
 		#ifdef DEBUG
 		cout << "Line: " << line << "...";
 		#endif
 
-		if(line.length() <= 2) {
+		if(cnt == 1) {
 			#ifdef DEBUG
 			cout << endl;
 			#endif
@@ -119,6 +120,7 @@ bool read_matrix(const char* filename, matrix *m) {
 		(*m).push_back(matrix_line);
 	}
 
+	free(str);
 	fclose(fr);
 	return true;
 }
@@ -320,6 +322,7 @@ int main(int argc, char **argv) {
 	MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+
 	/* Synchronize all processes */
 	MPI_Barrier(MPI_COMM_WORLD);
 
@@ -349,7 +352,7 @@ int main(int argc, char **argv) {
 
 		if( a.size() != b.size() ) {
 			cerr << "Matrices cannot be multiplied" << endl;
-			MPI_Finalize();
+			cerr << "A.size is " << a.size() << " B.size is " << b.size() << endl;
 			return 1;
 		}
 
@@ -358,12 +361,21 @@ int main(int argc, char **argv) {
 
 		for(int i = 0; i < a.size(); ++i) {
 			int ai = a.at(i);
-			int bi = b.at(i);
+			if(numprocs > 1){
+				MPI_Send(&ai, 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
+			}
+		}
 
-			//cout << "Proc " << myid << " sending " << a.at(i) << " to " << (myid + 1) << endl;
-			MPI_Send(&ai, 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
-			//cout << "Proc " << myid << " sending " << b.at(i) << " to " << (myid + cols) << endl;
-			MPI_Send(&bi, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+		for(int i = 0; i < b.size(); ++i) {
+			int bi = b.at(i);
+			if(numprocs > cols) {
+				MPI_Send(&bi, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+			}
+		}
+
+		for(int i = 0; i < a.size(); ++i) {
+			int ai = a.at(i);
+			int bi = b.at(i);
 
 			sum += (a.at(i) * b.at(i));
 		}
@@ -390,7 +402,8 @@ int main(int argc, char **argv) {
 				
 			}
 			//cout << "Proc " << myid << " sending " << my_row.at(i) << " to " << (myid + 1) << endl;
-			MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
+			if(cols > 1)
+				MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
 		}
 	}
 	/* First row but root process */
@@ -411,11 +424,13 @@ int main(int argc, char **argv) {
 				
 			}
 			//cout << "Proc " << myid << " sending " << my_row.at(i) << " to " << (myid + cols) << endl;
-			MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+			if(rows > 1)
+				MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 		}
 
 		//cout << "Proc " << myid << " sending " << last_number << " to " << (myid + cols) << endl;
-		MPI_Send(&last_number, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
+		if(rows > 1)
+			MPI_Send(&last_number, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 	}
 	/* All other processes */
 	else {
