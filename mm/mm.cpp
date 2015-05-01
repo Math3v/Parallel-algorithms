@@ -59,12 +59,11 @@ void print_vector(row v) {
 	cout << endl;
 }
 
+/* Split line to tokens */
 row split_line(string line) {
 	string buf;
 	stringstream ss(line);
 	row tokens;
-
-	//cout << "Split line " << line << endl;
 
 	while(ss >> buf) {
 		tokens.push_back(atoi(buf.c_str()));
@@ -73,6 +72,7 @@ row split_line(string line) {
 	return tokens;
 }
 
+/* Delete newline character */
 void remove_newline(char **str) {
 	int ln = strlen(*str);
 	char c = *(*str + ln - 1);
@@ -85,6 +85,7 @@ void remove_newline(char **str) {
 	}
 }
 
+/* Read matrix m from file specified by filename */
 bool read_matrix(const char* filename, matrix *m) {
 	FILE *fr = fopen(filename, "r");
 	char *str = NULL;
@@ -125,11 +126,13 @@ bool read_matrix(const char* filename, matrix *m) {
 	return true;
 }
 
+/* Read both matrices */
 bool read_matrices() {
 	return (read_matrix("mat1", &matA) && 
 			read_matrix("mat2", &matB));
 } 
 
+/* Get specific row */
 row get_line(matrix *m, int index) {
 	int cnt = 0;
 
@@ -145,6 +148,7 @@ row get_line(matrix *m, int index) {
 	return row();
 }
 
+/* Get specific column */
 row get_column(matrix *m, int index) {
 	int cnt;
 	row ret;
@@ -171,6 +175,7 @@ row get_column(matrix *m, int index) {
 	}
 }
 
+/* Count elements in matrix */
 int elements_count(matrix *m) {
 	matrix::iterator i;
 	int cnt = 0;
@@ -185,22 +190,10 @@ int elements_count(matrix *m) {
 }
 
 int get_rows() {
-	/*if(matA.size() > matA.front().size()){
-		return matA.size();
-	}
-	else {
-		return matA.front().size();
-	}*/
 	return matA.size();
 }
 
 int get_cols() {
-	/*if(matB.size() > matB.front().size()){
-		return matB.size();
-	}
-	else {
-		return matB.front().size();
-	}*/
 	matB.front().size();
 }
 
@@ -226,6 +219,7 @@ int get_cols(matrix m) {
 	return cols;
 }
 
+/* Convert array of integers into row type */
 row array_to_row(int *array, int size) {
 	row r;
 	for(int i = 0; i < size; ++i) {
@@ -235,6 +229,7 @@ row array_to_row(int *array, int size) {
 	return r;
 }
 
+/* Receive vector from another process */
 row receive_vector() {
 	int number_amount, *received;
 	MPI_Status stat;
@@ -253,6 +248,7 @@ row receive_vector() {
 	return ret;
 }
 
+/* Measure elapsed time */
 void timer(){
 	static double timer = 0;
 
@@ -287,30 +283,13 @@ int main(int argc, char **argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
+	/* Read matrices */
 	if(myid == 0) {
 		read_matrices();
 
 		rows = get_rows();
 		cols = get_cols();
-/*
-		if(get_rows(matA) < get_rows(matB)){
-			#ifdef DEBUG
-			cout << "Do not need swapping" << endl;
-			#endif
-		}
-		else if(get_rows(matA) >= get_rows(matB)) {
-			// Swap matrices 
-			#ifdef DEBUG
-			cout << "Swapping needed" << endl;
-			#endif
-			swap(matA, matB);
-			swapvals(&rows, &cols);
-		}
-		else {
-			// Something is wrong 
-			assert(3 == 2);
-		}
-*/
+
 		#ifdef DEBUG
 		cout << "Rows " << rows << " cols " << cols << endl;
 		cout << "MatA rows " << get_rows(matA) << " cols " << get_cols(matA) << endl;
@@ -319,6 +298,7 @@ int main(int argc, char **argv) {
 		
 	}
 
+	/* Broadcast n and k values */
 	MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -342,7 +322,6 @@ int main(int argc, char **argv) {
 		index = 1;
 		for(int i = 1; i < cols; ++i) {
 			row r = get_column(&matB, index);
-			//cout << "Sending column " << index << " to proc " << i << endl;
 			MPI_Send(&r.front(), r.size(), MPI_INT, i, HOR_TAG, MPI_COMM_WORLD);
 			++index;
 		}
@@ -383,25 +362,18 @@ int main(int argc, char **argv) {
 	/* First column but root process */
 	else if(myid % cols == 0) {
 		my_row = receive_vector();
-		//cout << "Proc " << myid << " received vector " << my_row.size();
-		//print_vector(my_row);
 		int recv;
 
+		/* Receive value, add multiplication to sum and send to another process */
 		for(int i = 0; i < my_row.size(); ++i) {
 			int number_amount, flag;
-			//cout << "Proc " << myid << " waiting from " << (myid - cols) << endl;
-			//MPI_Iprobe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
-			//MPI_Get_count(&stat, MPI_INT, &number_amount);
-			//cout << "Proc " << myid << " incoming " << number_amount << " numbers at " << stat.MPI_TAG << endl;
 			MPI_Recv(&recv, 1, MPI_INT, (myid - cols), VER_TAG, MPI_COMM_WORLD, &stat);
 			sum += (my_row.at(i) * recv);
 
 			if(myid + cols < numprocs) {
-				//cout << "Proc " << myid << " sending " << recv << " to " << (myid + cols) << endl;
 				MPI_Send(&recv, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 				
 			}
-			//cout << "Proc " << myid << " sending " << my_row.at(i) << " to " << (myid + 1) << endl;
 			if(cols > 1)
 				MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
 		}
@@ -409,54 +381,32 @@ int main(int argc, char **argv) {
 	/* First row but root process */
 	else if(myid < cols) {
 		my_row = receive_vector();
-		//cout << "Proc " << myid << " received vector ";
-		//print_vector(my_row);
 		int recv;
 
+		/* Receive value, add multiplication to sum and send to another process */
 		for(int i = 0; i < my_row.size(); ++i) {
-			//cout << "Proc " << myid << " waiting from " << (myid - 1) << endl;
 			MPI_Recv(&recv, 1, MPI_INT, (myid - 1), HOR_TAG, MPI_COMM_WORLD, &stat);
 			sum += (my_row.at(i) * recv);
 
 			if(myid + 1 < cols) {
-				//cout << "Proc " << myid << " sending " << recv << " to " << (myid + 1) << endl;
 				MPI_Send(&recv, 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
 				
 			}
-			//cout << "Proc " << myid << " sending " << my_row.at(i) << " to " << (myid + cols) << endl;
 			if(rows > 1)
 				MPI_Send(&my_row.at(i), 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 		}
 
-		//cout << "Proc " << myid << " sending " << last_number << " to " << (myid + cols) << endl;
 		if(rows > 1)
 			MPI_Send(&last_number, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 	}
 	/* All other processes */
 	else {
 		int a, b, number_amount, flag;
-		while(true) {
-			/*MPI_Iprobe(myid - cols, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &stat);
-			if(!flag){
-				continue;
-			}
-			//MPI_Get_count(&stat, MPI_INT, &number_amount);
-			//cout << "Proc " << myid << " incoming " << number_amount << " numbers at " << stat.MPI_TAG << endl;
-			if(stat.MPI_TAG == HOR_TAG) {
-				cout << "Proc " << myid << " waiting from " << (myid - 1) << endl;
-				MPI_Recv(&a, 1, MPI_INT, (myid - 1), HOR_TAG, MPI_COMM_WORLD, &stat);
-			}
-			else if(stat.MPI_TAG == VER_TAG) {
-				MPI_Recv(&b, 1, MPI_INT, (myid - cols), VER_TAG, MPI_COMM_WORLD, &stat);
-			}
-			else {
-				assert(3 == 2);
-			}
-			*/
 
+		/* Receive value, add multiplication to sum and send to another process */
+		while(true) {
 			MPI_Recv(&b, 1, MPI_INT, (myid - cols), VER_TAG, MPI_COMM_WORLD, &stat);
 			if(b == last_number && myid + cols < numprocs) {
-				//cout << "Proc " << myid << " sending " << last_number << " to " << (myid + cols) << endl;
 				MPI_Send(&last_number, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 				break;
 			}
@@ -468,21 +418,15 @@ int main(int argc, char **argv) {
 			sum += (a*b);
 
 			if(((myid % cols) + 1) < cols) {
-				//cout << "Proc " << myid << " sending " << a << " to " << (myid + 1) << endl;
 				MPI_Send(&a, 1, MPI_INT, (myid + 1), HOR_TAG, MPI_COMM_WORLD);
 			}
 			if(myid + cols < numprocs) {
-				//cout << "Proc " << myid << " sending " << b << " to " << (myid + cols) << endl;
 				MPI_Send(&b, 1, MPI_INT, (myid + cols), VER_TAG, MPI_COMM_WORLD);
 			}
 		}
 	}
 
-
-	//MPI_Barrier(MPI_COMM_WORLD);
-	//cout << "Process " << myid << " rows " << rows << " cols " << cols << endl;
-	//cout << "Process " << myid << " result " << sum << endl;
-
+	/* Receive results and print matrix */
 	MPI_Barrier(MPI_COMM_WORLD);
 	if(myid == 0) {
 		int r, c;
